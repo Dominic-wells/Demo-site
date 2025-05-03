@@ -79,6 +79,7 @@ const ChromieDemo = ({ onFeatureActive }) => {
     const featureId = e.currentTarget.dataset.feature;
     if (!featureInfo[featureId]) return;
 
+    // Cancel any pending leave
     if (leaveTimeoutRef.current) {
       clearTimeout(leaveTimeoutRef.current);
       leaveTimeoutRef.current = null;
@@ -93,17 +94,28 @@ const ChromieDemo = ({ onFeatureActive }) => {
     setActiveFeature(featureId);
     onFeatureActive?.(true);
     setIsVideoPlaying(true);
-
     setShowRing(true);
     setTimeout(() => setShowRing(false), 600);
 
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current.src = featureInfo[featureId].audio;
-      audioRef.current
-        .play()
-        .catch((err) => console.log("Audio playback prevented:", err));
+    // Check if the new audio is already playing
+    const audio = audioRef.current;
+    const newSrc = featureInfo[featureId].audio;
+    const fullSrc = `${window.location.origin}${newSrc}`;
+    const currentSrc = audio?.src;
+
+    // Only change and play if it's new or stopped
+    if (audio) {
+      const isSame = currentSrc === fullSrc;
+      const isPlaying = !audio.paused && !audio.ended && audio.readyState > 2;
+
+      if (!isSame || !isPlaying) {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.src = newSrc;
+        audio.play().catch((err) => {
+          console.warn("Audio playback failed:", err);
+        });
+      }
     }
   };
 
